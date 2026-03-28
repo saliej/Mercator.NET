@@ -2,6 +2,10 @@
 
 A simple C# object mapper with a fluent configuration API and convention-based mapping.
 
+[![NuGet](https://img.shields.io/nuget/v/Mercator.NET.svg)](https://www.nuget.org/packages/Mercator.NET/)
+[![Downloads](https://img.shields.io/nuget/dt/Mercator.NET.svg)](https://www.nuget.org/packages/Mercator.NET/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 ## Features
 
 - **Convention-based mapping**: Automatically maps properties with matching names and compatible types
