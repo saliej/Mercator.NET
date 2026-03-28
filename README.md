@@ -9,6 +9,7 @@ A simple C# object mapper with a fluent configuration API and convention-based m
 ## Features
 
 - **Convention-based mapping**: Automatically maps properties with matching names and compatible types
+- **Record mapping**: Map to positional records; the primary constructor is invoked automatically
 - **Fluent configuration**: Override conventions with explicit member mappings
 - **Nested paths**: Map to deeply nested destination properties
 - **Conditional mapping**: Skip members based on runtime conditions
@@ -165,6 +166,25 @@ Register<Entity, Dto>()
     .BindMember(dest => dest.Created, opt => opt
         .From(src => src.CreatedAt.ToString("O")))
     .AndReverse();
+```
+
+### Record Mapping
+
+Positional records are supported without any extra configuration. Mercator invokes the primary
+constructor, matching each parameter to a source property by name. All fluent options (`BindMember`,
+`Transform`, `AfterMap`, etc.) work the same way.
+
+```csharp
+public record CustomerSummary(int Id, string? FullName);
+
+public class CustomerEntity
+{
+    public int Id { get; set; }
+    public string? FullName { get; set; }
+}
+
+Register<CustomerEntity, CustomerSummary>();
+// mapper.Map<CustomerSummary>(entity) calls new CustomerSummary(entity.Id, entity.FullName)
 ```
 
 ### Multiple Calls on Same Member

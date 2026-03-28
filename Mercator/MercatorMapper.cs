@@ -12,6 +12,9 @@ internal sealed class MercatorMapper : IMapper
     // Key: (runtime source type, declared destination type)
     private readonly Dictionary<(Type Source, Type Destination), Action<object, object>> _mappings = new();
 
+    // Factories for destination types that require constructor-based instantiation (e.g. records).
+    private readonly Dictionary<(Type Source, Type Destination), Func<object, object>> _recordFactories = new();
+
     public MercatorMapper(IEnumerable<MappingConfiguration> configurations, MercatorOptions? options = null)
     {
         var configs = configurations.ToList();
@@ -34,6 +37,13 @@ internal sealed class MercatorMapper : IMapper
             conventionNameSets[config] = pairs.Select(p => p.DestName).ToHashSet();
             var key = (config.SourceType, config.DestinationType);
             _mappings[key] = BuildMappingFunction(config, pairs, _mappings);
+
+            if (RequiresConstructorInstantiation(config.DestinationType))
+            {
+                var ctor = FindPrimaryConstructor(config.DestinationType);
+                if (ctor != null)
+                    _recordFactories[key] = BuildRecordFactory(config, ctor, pairs);
+            }
         }
 
         if (options is { ValidationMode: not ValidationMode.None })
@@ -50,6 +60,9 @@ internal sealed class MercatorMapper : IMapper
             throw new InvalidOperationException(
                 $"No mapping registered from '{source.GetType().FullName}' to " +
                 $"'{typeof(TDestination).FullName}'. Ensure a Register call exists in a MappingRegistry.");
+
+        if (_recordFactories.TryGetValue(key, out var factory))
+            return (TDestination)factory(source);
 
         var destination = Activator.CreateInstance<TDestination>()
             ?? throw new InvalidOperationException(
@@ -283,6 +296,15 @@ internal sealed class MercatorMapper : IMapper
 
     private static Action<object, object?> CompileSetter(PropertyInfo destProp, Type destType)
     {
+        // Init-only setters carry a modreq that expression trees cannot target in all runtimes;
+        // use reflection for them so both convention-based and MapInto paths work on records.
+        if (IsInitOnlySetter(destProp))
+        {
+            if (destProp.PropertyType.IsValueType && Nullable.GetUnderlyingType(destProp.PropertyType) is null)
+                return (dest, val) => { if (val is not null) destProp.SetValue(dest, val); };
+            return (dest, val) => destProp.SetValue(dest, val);
+        }
+
         var destParam = Expression.Parameter(typeof(object), "dest");
         var valParam  = Expression.Parameter(typeof(object), "val");
         var body = Expression.Assign(
@@ -296,6 +318,99 @@ internal sealed class MercatorMapper : IMapper
             return (dest, val) => { if (val is not null) rawSetter(dest, val); };
 
         return rawSetter;
+    }
+
+    private static bool IsInitOnlySetter(PropertyInfo prop)
+    {
+        var setter = prop.SetMethod;
+        if (setter == null) return false;
+        return setter.ReturnParameter
+            .GetRequiredCustomModifiers()
+            .Any(m => m.FullName == "System.Runtime.CompilerServices.IsExternalInit");
+    }
+
+    // Returns true when the destination type has public constructors but none are parameterless,
+    // meaning it requires constructor-based instantiation (e.g. a positional record).
+    private static bool RequiresConstructorInstantiation(Type type)
+    {
+        var publicCtors = type.GetConstructors();
+        return publicCtors.Length > 0 && publicCtors.All(c => c.GetParameters().Length > 0);
+    }
+
+    private static ConstructorInfo? FindPrimaryConstructor(Type type)
+        => type.GetConstructors()
+               .OrderByDescending(c => c.GetParameters().Length)
+               .FirstOrDefault();
+
+    private static Func<object, object> BuildRecordFactory(
+        MappingConfiguration config,
+        ConstructorInfo ctor,
+        List<(string DestName, Func<object, object?> Get, Action<object, object?> Set)> conventionPairs)
+    {
+        var parameters = ctor.GetParameters();
+        var memberMappings  = config.MemberMappings;
+        var transforms      = config.Transforms;
+        var afterMapActions = config.AfterMapActions;
+
+        var conventionGetters = conventionPairs.ToDictionary(
+            p => p.DestName,
+            p => p.Get,
+            StringComparer.OrdinalIgnoreCase);
+
+        var paramResolvers = new List<Func<object, object?>>(parameters.Length);
+        foreach (var param in parameters)
+        {
+            var pascalName = char.ToUpperInvariant(param.Name![0]) + param.Name[1..];
+
+            if (memberMappings.TryGetValue(pascalName, out var memberConfig) &&
+                !memberConfig.IsIgnored &&
+                memberConfig.Resolver != null)
+            {
+                var resolver  = memberConfig.Resolver;
+                var condition = memberConfig.Condition;
+                var paramDefault = GetParameterDefault(param);
+                paramResolvers.Add(src =>
+                {
+                    if (condition != null && !condition(src)) return paramDefault;
+                    try { return resolver(src); }
+                    catch (NullReferenceException) { return paramDefault; }
+                });
+            }
+            else if (conventionGetters.TryGetValue(pascalName, out var getter))
+            {
+                paramResolvers.Add(getter);
+            }
+            else
+            {
+                var paramDefault = GetParameterDefault(param);
+                paramResolvers.Add(_ => paramDefault);
+            }
+        }
+
+        return src =>
+        {
+            var args = new object?[parameters.Length];
+            for (var i = 0; i < parameters.Length; i++)
+            {
+                var value = paramResolvers[i](src);
+                value = ApplyTransforms(value, transforms);
+                args[i] = value;
+            }
+
+            var dest = ctor.Invoke(args);
+
+            foreach (var action in afterMapActions)
+                action(src, dest);
+
+            return dest;
+        };
+    }
+
+    private static object? GetParameterDefault(ParameterInfo param)
+    {
+        if (param.HasDefaultValue) return param.DefaultValue;
+        if (param.ParameterType.IsValueType) return Activator.CreateInstance(param.ParameterType);
+        return null;
     }
 
     private static bool AreTypesCompatible(Type source, Type destination)

@@ -20,8 +20,13 @@ The main runtime interface. Implementations are thread-safe singletons.
 TDestination Map<TDestination>(object source);
 ```
 
-Creates a new `TDestination` instance via `Activator.CreateInstance<TDestination>()` and
-populates it from `source`.
+Creates a new `TDestination` instance and populates it from `source`.
+
+- If `TDestination` has a public parameterless constructor, it is created via
+  `Activator.CreateInstance<TDestination>()` and properties are set by the mapping function.
+- If `TDestination` has public constructors but none are parameterless (e.g. a positional
+  record), the constructor with the most parameters is invoked with arguments resolved from
+  `source`. See [Record Mapping](Record-Mapping).
 
 | Parameter | Description |
 |-----------|-------------|
@@ -30,7 +35,7 @@ populates it from `source`.
 **Throws:**
 - `ArgumentNullException` — `source` is `null`
 - `InvalidOperationException` — no mapping registered for `(source.GetType(), typeof(TDestination))`
-- `MissingMethodException` — `TDestination` has no accessible parameterless constructor
+- `MissingMethodException` — `TDestination` has no accessible public constructor
 
 #### MapInto
 
@@ -291,9 +296,8 @@ Both overloads return `IServiceCollection` for chaining.
 |-----------|------|
 | `ArgumentNullException` | `Map` or `MapInto` called with a null argument |
 | `InvalidOperationException` — no mapping | `Map` / `MapInto` called for an unregistered type pair |
-| `InvalidOperationException` — no constructor | `Map` called but destination has no accessible parameterless constructor |
 | `InvalidOperationException` — unmapped members | `Strict` validation at construction time |
 | `InvalidOperationException` — vacuous BindMember | `BindMember` called with an empty configure action |
 | `InvalidOperationException` — missing element mapping | `BindCollection` mapped at runtime but element mapping is not registered |
 | `InvalidOperationException` — path segment | A segment in a `BindPath` / `BindCollection` nested path cannot be resolved or instantiated |
-| `MissingMethodException` | `Activator.CreateInstance<TDestination>()` fails (no parameterless constructor) |
+| `MissingMethodException` | `TDestination` has no accessible public constructor (e.g. only private constructors) |

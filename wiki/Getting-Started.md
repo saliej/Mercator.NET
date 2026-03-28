@@ -12,8 +12,8 @@ Add a project reference (or NuGet package, once published) to `Mercator`.
 
 ## Step 1 — Define types
 
-Mercator works with any POCO classes. No attributes or base classes are required on source or
-destination types.
+Mercator works with any POCO classes or records. No attributes or base classes are required on
+source or destination types.
 
 ```csharp
 public class CustomerEntity
@@ -115,5 +115,6 @@ See [Validation](Validation) for details.
 ## Next steps
 
 - [Convention Mapping](Convention-Mapping) — understand which properties are copied automatically
+- [Record Mapping](Record-Mapping) — map to positional records
 - [BindMember and BindPath](BindMember-and-BindPath) — customise individual property mappings
 - [Validation](Validation) — detect unmapped properties early

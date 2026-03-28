@@ -9,6 +9,7 @@ consists only of a dictionary lookup and delegate invocation.
 | Feature | Description |
 |---------|-------------|
 | [Convention mapping](Convention-Mapping) | Properties with the same name and compatible types are copied automatically |
+| [Record mapping](Record-Mapping) | Map to positional records; the primary constructor is invoked with matched arguments |
 | [BindMember](BindMember-and-BindPath) | Override or augment a convention-matched property with a custom resolver and/or condition |
 | [BindPath](BindMember-and-BindPath#bindpath) | Map to a nested property path; intermediate objects are created automatically |
 | [IgnoreMember](Ignore-Members) | Prevent a destination property from being mapped |
@@ -58,6 +59,7 @@ public class OrderService(IMapper mapper)
 
 - [Getting Started](Getting-Started)
 - [Convention Mapping](Convention-Mapping)
+- [Record Mapping](Record-Mapping)
 - [BindMember and BindPath](BindMember-and-BindPath)
 - [Ignore Members](Ignore-Members)
 - [Transforms](Transforms)

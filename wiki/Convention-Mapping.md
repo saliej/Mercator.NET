@@ -10,7 +10,7 @@ A source property and destination property are matched when **all** of the follo
 1. **Same name** — exact, case-sensitive match on `PropertyInfo.Name`.
 2. **Readable source** — the source property has a `public`, `internal`, or `protected` getter.
 3. **Writable destination** — the destination property has a `public`, `internal`, or `protected`
-   setter.
+   setter, including `init`-only setters (used by record properties).
 4. **Compatible types** — the types pass the compatibility check described below.
 
 Unmatched properties on either side are silently ignored unless [Validation](Validation) is
@@ -42,19 +42,27 @@ Types are compatible when any of the following is true:
 > is assignable to `BaseAnimal`. The reverse (`BaseAnimal` source → `DerivedAnimal` destination)
 > is not matched.
 
-## Non-public setters
+## Non-public and init-only setters
 
-Properties with `internal set` or `protected set` are included in both convention matching and
-[Validation](Validation) checks, provided the mapping code has access to the assembly containing
-them (e.g., via `InternalsVisibleTo`).
+Properties with `internal set`, `protected set`, or `init` are included in both convention
+matching and [Validation](Validation) checks.
 
 ```csharp
 public class Dest
 {
-    public int Id { get; set; }           // public setter — matched
-    public string? Name { get; internal set; } // internal setter — matched
+    public int Id { get; set; }                  // public setter — matched
+    public string? Name { get; internal set; }   // internal setter — matched
 }
+
+public record RecordDest(int Id, string? Name);  // init-only setters — matched
 ```
+
+For `internal set`, the mapping code needs access to the assembly (e.g. via
+`InternalsVisibleTo`).
+
+> **Note:** When the destination is a positional record (no parameterless constructor), convention
+> matches are used to resolve constructor arguments rather than to call setters directly. See
+> [Record Mapping](Record-Mapping) for details.
 
 ## Runtime type lookup
 
