@@ -12,6 +12,17 @@ A simple C# object mapper with a fluent configuration API and convention-based m
 - **Reverse mapping**: Generate bidirectional mappings
 - **DI integration**: Built-in support for `Microsoft.Extensions.DependencyInjection`
 
+## Notes
+- This libary was created to facilitate incremental migration away from [AutoMapper](https://automapper.io/) in some projects I maintain
+    - The focus was on implementing features used in said projects
+    - It is not a drop-in replacement but it shares a similar API for simple mappings
+    - Some features were added just because
+- Performance is not a priority, but refer to the [Wiki](https://github.com/saliej/Mercator.NET/wiki/Performance) for some details
+- Most of the code was written and reviewed by Claude and GLM 4.7. The rest was written using my very own brain (*gasp*)
+- You probably don't need this. There are dozens of other C# Object Mapping libraries around.
+    - Consider [Mapperly](https://mapperly.riok.app/) for a relatively safe and performant one.
+    - More importantly take a moment to think about whether or not you even need an object mapper in the first place
+
 ## Installation
 
 Add the Mercator package to your project:
